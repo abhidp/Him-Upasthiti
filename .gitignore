@@ -1,0 +1,31 @@
+# APKs and bundles
+*.apk
+*.aab
+*.xapk
+*.dex
+*.so
+*.jar
+# Decompiled APK trees
+base_extracted/
+arm64_extracted/
+work_*/
+fresh_baseline/
+# Logs (may contain PII)
+*.log
+crash.log
+otp.log
+# Keystores
+*.keystore
+*.jks
+# Build artifacts
+dist/
+build/
+assets/
+original
+res/
+lib/
+smali/
+smali_classes2/
+smali_classes3/
+unknown/
+
