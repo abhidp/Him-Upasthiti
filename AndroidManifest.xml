@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:compileSdkVersion="35"
+    android:compileSdkVersionCodename="15" package="com.attendancemanagementsystem"
+    platformBuildVersionCode="35" platformBuildVersionName="15">
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <queries>
+        <package android:name="in.gov.uidai.facerd" />
+        <intent>
+            <action android:name="org.chromium.intent.action.PAY" />
+        </intent>
+        <intent>
+            <action android:name="org.chromium.intent.action.IS_READY_TO_PAY" />
+        </intent>
+        <intent>
+            <action android:name="org.chromium.intent.action.UPDATE_PAYMENT_DETAILS" />
+        </intent>
+    </queries>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <permission
+        android:name="com.attendancemanagementsystem.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature" />
+    <uses-permission
+        android:name="com.attendancemanagementsystem.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission
+        android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE" />
+    <application android:allowBackup="false"
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+        android:extractNativeLibs="true" android:hardwareAccelerated="true"
+        android:icon="@mipmap/ic_launcher" android:label="@string/app_name"
+        android:launchMode="singleTask"
+        android:name="com.attendancemanagementsystem.MainApplication"
+        android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true"
+        android:theme="@style/AppTheme" android:usesCleartextTraffic="true">
+        <activity android:clearTaskOnLaunch="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"
+            android:exported="true" android:finishOnTaskLaunch="false"
+            android:label="@string/app_name" android:launchMode="singleTask"
+            android:name="com.attendancemanagementsystem.MainActivity" android:taskAffinity=""
+            android:theme="@style/BootTheme" android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:enabled="true" android:exported="false"
+            android:foregroundServiceType="location"
+            android:name="com.attendancemanagementsystem.LocationService" />
+        <meta-data android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCeqSYUQi3wufQNsawmEj5mQABtYQvlK2c" />
+        <provider android:authorities="com.attendancemanagementsystem.fileprovider"
+            android:exported="false" android:grantUriPermissions="true"
+            android:name="com.reactnativecommunity.webview.RNCWebViewFileProvider">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+        <provider android:authorities="com.attendancemanagementsystem.imagepickerprovider"
+            android:exported="false" android:grantUriPermissions="true"
+            android:name="com.imagepicker.ImagePickerProvider">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/imagepicker_provider_paths" />
+        </provider>
+        <activity android:exported="false"
+            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <meta-data android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+        <provider android:authorities="com.attendancemanagementsystem.androidx-startup"
+            android:exported="false" android:name="androidx.startup.InitializationProvider">
+            <meta-data android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup" />
+            <meta-data android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+                android:value="androidx.startup" />
+            <meta-data android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+        <receiver android:directBootAware="false" android:enabled="true" android:exported="true"
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+            </intent-filter>
+        </receiver>
+        <meta-data android:name="com.facebook.soloader.enabled" android:value="false" />
+        <activity android:exported="false"
+            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
+            android:stateNotNeeded="true" android:theme="@style/Theme.PlayCore.Transparent" />
+        <activity android:exported="false" android:name="com.pairip.licensecheck.LicenseActivity" />
+        <provider
+            android:authorities="com.attendancemanagementsystem.com.pairip.licensecheck.LicenseContentProvider"
+            android:exported="false" android:name="com.pairip.licensecheck.LicenseContentProvider" />
+        <meta-data android:name="com.android.stamp.source"
+            android:value="https://play.google.com/store" />
+        <meta-data android:name="com.android.stamp.type" android:value="STAMP_TYPE_DISTRIBUTION_APK" />
+    </application>
+    <uses-permission android:name="com.android.vending.CHECK_LICENSE" />
+</manifest>
