@@ -135,6 +135,45 @@ if not pairip_found:
 
 
 # ---------------------------------------------------------------------------
+# 7.4 Pairip: neutralise LicenseClient.checkLicense (2.1.9+ trigger)
+#
+# 2.1.9 introduced com/pairip/application/Application, whose attachBaseContext()
+# calls LicenseClient.checkLicense(context) on the very first line of app startup.
+# This is a SECOND Pairip trigger that the 7.3 ContentProvider patch does NOT
+# cover, and it fires the "app not recognised / get it from Play" dialog at
+# launch even when 7.3 is applied. Stub checkLicense to a no-op so the
+# LicenseClient is never constructed, regardless of which caller invokes it.
+# (Pre-2.1.9 builds may not have this method — treated as info, not an error.)
+# ---------------------------------------------------------------------------
+NEUTRAL_CHECKLICENSE = """.method public static checkLicense(Landroid/content/Context;)V
+    .locals 0
+
+    return-void
+.end method"""
+
+checklicense_found = False
+for smali_root in ("smali_classes2", "smali_classes3", "smali_classes4", "smali"):
+    license_client = ROOT / smali_root / "com/pairip/licensecheck/LicenseClient.smali"
+    if license_client.exists():
+        text = license_client.read_text()
+        new_text, n = re.subn(
+            r"\.method public static checkLicense\(Landroid/content/Context;\)V.*?\.end method",
+            NEUTRAL_CHECKLICENSE, text, flags=re.DOTALL,
+        )
+        if n == 0:
+            print("[info] Pairip: checkLicense() absent in LicenseClient "
+                  "(pre-2.1.9 layout) — skipping")
+        else:
+            license_client.write_text(new_text)
+            print(f"[ok] Pairip: neutralised checkLicense in {smali_root}")
+        checklicense_found = True
+        break
+
+if not checklicense_found:
+    print("[info] Pairip LicenseClient not present — may have been removed")
+
+
+# ---------------------------------------------------------------------------
 # 8.1 Drawable @null fix for rn_edit_text_material
 # ---------------------------------------------------------------------------
 DRW = ROOT / "res/drawable/rn_edit_text_material.xml"

@@ -285,6 +285,83 @@ sites need stubbing too.
 section. Still check the manifest and remove the `LicenseActivity` and
 `LicenseContentProvider` declarations if they remain orphaned.
 
+### 7.4 Pairip — neutralise the `Application`-wrapper trigger (added in 2.1.9)
+
+**File:** `smali_classes2/com/pairip/licensecheck/LicenseClient.smali`
+
+**Symptom:** you applied 7.3, the APK installs fine, but on launch it still
+shows the *"app not recognised / search on Google Play"* dialog. The
+ContentProvider stub alone is no longer enough.
+
+**Cause:** starting in 2.1.9, Pairip added a wrapper Application class and
+points the manifest at it:
+
+```
+android:name="com.pairip.application.Application"
+```
+
+That class (`smali_classes2/com/pairip/application/Application.smali`) extends the
+real app Application (`com.attendancemanagementsystem.MainApplication`) and runs
+the license check as the *first line of startup*, before anything else:
+
+```smali
+.method protected attachBaseContext(Landroid/content/Context;)V
+    .locals 0
+    invoke-static {p1}, Lcom/pairip/licensecheck/LicenseClient;->checkLicense(Landroid/content/Context;)V
+    invoke-super {p0, p1}, Lcom/pairip/application/Application;->attachBaseContext(Landroid/content/Context;)V
+    return-void
+.end method
+```
+
+This is a **second, earlier trigger** independent of the 7.3 ContentProvider.
+
+**How to detect on a new build:**
+- The package `smali_classes*/com/pairip/application/` exists (it does NOT in 2.1.7), **or**
+- `grep -rn "checkLicense" --include=*.smali` shows a caller outside `licensecheck/`.
+
+**Patch:** stub the single public entry point `checkLicense(Context)` to a no-op.
+This is the cleanest chokepoint — `grep` confirms `Application.attachBaseContext`
+is its only caller, and gutting it means `LicenseClient` is never constructed,
+so neither the initial check nor the scheduled repeated checks ever run.
+
+**Original:**
+
+```smali
+.method public static checkLicense(Landroid/content/Context;)V
+    .locals 1
+    .annotation system Ldalvik/annotation/MethodParameters;
+        ...
+    .end annotation
+
+    invoke-static {}, Lcom/pairip/licensecheck/LicenseClient;->isIsolatedProcess()Z
+    move-result v0
+    if-eqz v0, :cond_0
+    ...log + return-void...
+    :cond_0
+    new-instance v0, Lcom/pairip/licensecheck/LicenseClient;
+    invoke-direct {v0, p0}, Lcom/pairip/licensecheck/LicenseClient;-><init>(Landroid/content/Context;)V
+    invoke-virtual {v0}, Lcom/pairip/licensecheck/LicenseClient;->initializeLicenseCheck()V
+    return-void
+.end method
+```
+
+**Replacement:**
+
+```smali
+.method public static checkLicense(Landroid/content/Context;)V
+    .locals 0
+
+    return-void
+.end method
+```
+
+**Alternative (equivalent):** delete the `invoke-static ...checkLicense` line from
+`Application.attachBaseContext` and keep the `invoke-super`. Stubbing
+`checkLicense` itself is preferred — it covers any future caller too.
+
+`apply_patches.py` automates this (section 7.4 block); it prints `[info]` and
+skips cleanly on pre-2.1.9 builds where the method is absent.
+
 ---
 
 ## 8. Patch targets (resources)
@@ -576,7 +653,13 @@ diffing against a new version.
 | `smali/com/attendancemanagementsystem/DeveloperOptionsModule.smali` | 4 methods stubbed to resolve Boolean.FALSE |
 | `smali/com/attendancemanagementsystem/LocationModuleHU.smali` | `const/4 v<REG>, 0x0` inserted after `isFromMockProvider` move-result |
 | `smali_classes2/com/pairip/licensecheck/LicenseContentProvider.smali` | `onCreate()` replaced with no-op returning `true` |
+| `smali_classes2/com/pairip/licensecheck/LicenseClient.smali` | **(2.1.9+)** `checkLicense(Context)` stubbed to `return-void` — kills the new `Application`-wrapper trigger (§7.4) |
 | `res/drawable/rn_edit_text_material.xml` | Two `@null` drawables replaced with `@android:color/transparent` |
+
+> **Version note:** 2.1.7 had only the §7.3 ContentProvider trigger. 2.1.9 added
+> a `com.pairip.application.Application` wrapper (the new §7.4 trigger). Always
+> check for `smali_classes*/com/pairip/application/` on a new build — if present,
+> §7.4 is required in addition to §7.3.
 
 ---
 
@@ -607,6 +690,9 @@ and asked to reproduce this patch, the minimum you need to do is:
      `smali/com/attendancemanagementsystem/`
    - `Lcom/pairip/licensecheck/LicenseContentProvider;` somewhere under
      `smali_classes*/`
+   - **(2.1.9+)** check whether `smali_classes*/com/pairip/application/Application.smali`
+     exists. If it does, §7.4 applies: stub `LicenseClient.checkLicense(Context)`
+     too — the §7.3 ContentProvider patch alone will NOT stop the launch dialog.
    - `res/drawable/rn_edit_text_material.xml`
 3. If any target is missing, **stop and report** — do not guess. Missing targets
    mean the publisher has restructured something and a human should look.

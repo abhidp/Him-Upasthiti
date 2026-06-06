@@ -29,3 +29,12 @@ smali_classes2/
 smali_classes3/
 unknown/
 
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Build tools — committed on purpose so the repo is self-contained.
+# These negations override the "*.jar" rule above; see TOOLS.md.
+!tools/
+!tools/*.jar
+
