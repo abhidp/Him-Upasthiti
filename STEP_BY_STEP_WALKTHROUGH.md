@@ -180,6 +180,10 @@ python "$ref\base_extracted\scripts\apply_patches.py" "$dst\base_extracted"
 
 ## Step 9 — Rebuild, sign, and install
 
+> Want to install to an **Android Studio emulator** instead of (or alongside) a physical
+> phone? See **EMULATOR_SETUP.md**. The one-button `autopatch.ps1` lists all connected
+> targets and lets you pick; everything below is the manual phone equivalent.
+
 Plug your phone in (USB, File Transfer/MTP mode, USB debugging ON), then:
 
 ```powershell

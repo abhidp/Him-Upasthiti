@@ -43,12 +43,46 @@ $script:Log = $null
 function Stop-Log {
     if ($script:Transcribing) { try { Stop-Transcript | Out-Null } catch {} ; $script:Transcribing = $false }
 }
+function Pause-Window {
+    # Keep the console open until the user explicitly types 'exit'. A stray Enter (or
+    # any other text) just re-prompts, so the window can't be closed by accident.
+    # Flush first so a leftover keystroke from an earlier prompt can't pre-fill input.
+    # No-op when there is no interactive console (Read-Host throws -> caught) so an
+    # automated/headless run never hangs.
+    Write-Host ""
+    try {
+        try { $Host.UI.RawUI.FlushInputBuffer() } catch {}
+        do {
+            $resp = Read-Host "Type 'exit' and press Enter to close this window"
+        } while ($null -ne $resp -and $resp.Trim().ToLower() -ne 'exit')
+    } catch {}
+}
 function Fail-Early($msg) {
     Write-Host ""
     Write-Host "  FAIL: $msg" -ForegroundColor Red
     Write-Host ""
     Stop-Log
+    Pause-Window
     exit 1
+}
+function Get-DeviceName($serial) {
+    # Friendly name for the final message. Emulators expose their AVD name via
+    # `adb emu avd name`; physical devices use manufacturer + model.
+    if ($serial -like "emulator-*") {
+        try {
+            $n = (adb -s $serial emu avd name 2>$null | Select-Object -First 1)
+            if ($n) { $n = $n.Trim() }
+            if ($n) { return "$n  [$serial, emulator]" }
+        } catch {}
+        return "$serial  [emulator]"
+    }
+    try {
+        $man = (adb -s $serial shell getprop ro.product.manufacturer 2>$null | Out-String).Trim()
+        $mod = (adb -s $serial shell getprop ro.product.model 2>$null | Out-String).Trim()
+        $nm  = ("$man $mod").Trim()
+        if ($nm) { return "$nm  [$serial, physical device]" }
+    } catch {}
+    return "$serial  [physical device]"
 }
 
 Write-Host "==================================================" -ForegroundColor Cyan
@@ -102,6 +136,8 @@ Write-Host "Workdir: $Work" -ForegroundColor Gray
 Write-Host ""
 
 $exitCode = 1
+$installedName = $null
+$outSigned = $null
 try {
     $Base = Join-Path $Work "base_extracted"
     $Arm  = Join-Path $Work "arm64_extracted"
@@ -191,28 +227,66 @@ print('extracted OK')
     catch { Write-Host "  (no interactive console - skipping install prompt)" -ForegroundColor Gray }
 
     if ($ans -eq 'y' -or $ans -eq 'yes') {
-        $devices = @( (adb devices) -split "`r?`n" | Where-Object { $_ -match "\tdevice$" } )
-        if ($devices.Count -eq 0) {
-            Write-Host "  No authorised device found. Connect the phone (USB debugging on, accept the prompt), then:" -ForegroundColor Yellow
-            Write-Host "    adb uninstall com.attendancemanagementsystem"
+        # Enumerate authorised adb targets. A physical phone and an Android Studio
+        # emulator both appear here; emulators have serials like "emulator-5554".
+        $serials = @(
+            (adb devices) -split "`r?`n" |
+                Where-Object { $_ -match "^\S+\s+device$" } |
+                ForEach-Object { ($_ -split "\s+")[0] }
+        )
+
+        $target = $null
+        if ($serials.Count -eq 0) {
+            Write-Host "  No authorised device found." -ForegroundColor Yellow
+            Write-Host "  Connect a phone (USB debugging on, accept the prompt) OR start an emulator" -ForegroundColor Yellow
+            Write-Host "  in Android Studio (Device Manager), then install manually:" -ForegroundColor Yellow
             Write-Host "    adb install `"$outSigned`""
         }
-        elseif ($devices.Count -gt 1) {
-            Write-Host "  Multiple devices connected - skipping auto-install to avoid the wrong target. Install manually:" -ForegroundColor Yellow
-            Write-Host "    adb -s <serial> install `"$outSigned`""
+        elseif ($serials.Count -eq 1) {
+            $target = $serials[0]
         }
         else {
-            Write-Host "  Uninstalling old build (a 'not installed' message here is harmless) ..." -ForegroundColor Gray
-            adb uninstall com.attendancemanagementsystem
-            Write-Host "  Installing patched build ..." -ForegroundColor Gray
-            adb install $outSigned
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "  INSTALL FAILED (the signed APK is still valid - try manually):" -ForegroundColor Red
-                Write-Host "    adb install `"$outSigned`""
+            # More than one target connected (e.g. phone + emulator): let the user pick.
+            Write-Host "  Multiple devices connected - choose where to install:" -ForegroundColor Cyan
+            for ($i = 0; $i -lt $serials.Count; $i++) {
+                $s = $serials[$i]
+                $kind = if ($s -like "emulator-*") { "emulator" } else { "physical" }
+                $model = ""
+                try { $model = (adb -s $s shell getprop ro.product.model 2>$null | Out-String).Trim() } catch {}
+                $label = if ($model) { "$kind - $model" } else { $kind }
+                Write-Host ("    [{0}] {1}  ({2})" -f ($i + 1), $s, $label)
+            }
+            $pick = ""
+            try { $pick = (Read-Host "  Enter number (blank to skip)").Trim() }
+            catch { Write-Host "  (no interactive console - skipping install)" -ForegroundColor Gray }
+            if ($pick -match '^\d+$' -and [int]$pick -ge 1 -and [int]$pick -le $serials.Count) {
+                $target = $serials[[int]$pick - 1]
             }
             else {
+                Write-Host "  No valid selection - skipping install. Install manually:" -ForegroundColor Yellow
+                Write-Host "    adb -s <serial> install `"$outSigned`""
+            }
+        }
+
+        if ($target) {
+            $kind = if ($target -like "emulator-*") { "emulator" } else { "physical device" }
+            Write-Host "  Target: $target ($kind)" -ForegroundColor Gray
+            Write-Host "  Uninstalling old build (a 'not installed' message here is harmless) ..." -ForegroundColor Gray
+            adb -s $target uninstall com.attendancemanagementsystem
+            Write-Host "  Installing patched build ..." -ForegroundColor Gray
+            adb -s $target install $outSigned
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  INSTALL FAILED (the signed APK is still valid)." -ForegroundColor Red
+                if ($kind -eq "emulator") {
+                    Write-Host "  If the error is NO_MATCHING_ABIS, the emulator image lacks ARM64 translation." -ForegroundColor Red
+                    Write-Host "  Use a Google APIs / Google Play x86_64 image (API 30+). See EMULATOR_SETUP.md." -ForegroundColor Red
+                }
+                Write-Host "  Manual retry: adb -s $target install `"$outSigned`"" -ForegroundColor Red
+            }
+            else {
+                $installedName = Get-DeviceName $target
                 Write-Host ""
-                Write-Host "  INSTALL PASS - open the app on your phone to verify (no Pairip dialog expected)." -ForegroundColor Green
+                Write-Host "  INSTALL PASS - open the app on the $kind to verify (no Pairip dialog expected)." -ForegroundColor Green
             }
         }
     }
@@ -235,4 +309,32 @@ finally {
     Stop-Log
 }
 
+# ---- Final summary (stays on screen; window does not auto-close) ---------------
+Write-Host ""
+Write-Host "==================================================" -ForegroundColor Cyan
+if ($installedName) {
+    Write-Host "  CONGRATULATIONS!" -ForegroundColor Green
+    Write-Host "  Him Upasthiti $Version has been successfully installed on:" -ForegroundColor Green
+    Write-Host "      $installedName" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Open the app there to verify (no Pairip dialog expected)." -ForegroundColor Green
+}
+elseif ($exitCode -eq 0 -and $outSigned) {
+    Write-Host "  PATCHED APK IS READY (not installed to a device)" -ForegroundColor Yellow
+    Write-Host "  No device was connected/selected. Your signed APK is here:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "      $outSigned" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Copy that file to your phone (USB cable or any file transfer) and" -ForegroundColor Yellow
+    Write-Host "  install it there, OR start a device/emulator and run this again to" -ForegroundColor Yellow
+    Write-Host "  auto-install." -ForegroundColor Yellow
+}
+else {
+    Write-Host "  BUILD DID NOT COMPLETE" -ForegroundColor Red
+    Write-Host "  Review the messages above. Full log:" -ForegroundColor Red
+    Write-Host "      $script:Log" -ForegroundColor Red
+}
+Write-Host "==================================================" -ForegroundColor Cyan
+
+Pause-Window
 exit $exitCode

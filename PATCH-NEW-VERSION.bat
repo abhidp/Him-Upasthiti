@@ -7,6 +7,6 @@ REM
 REM  This launcher lives INSIDE the git repo (base_extracted) so it is
 REM  version-controlled. autopatch.ps1 auto-locates apktool.jar/signer.jar.
 REM ====================================================================
+REM  The script keeps this window open itself (it pauses on every exit path),
+REM  so no 'pause' is needed here - that would just double-prompt.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\autopatch.ps1"
-echo.
-pause
