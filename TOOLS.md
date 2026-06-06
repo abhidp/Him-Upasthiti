@@ -33,9 +33,17 @@ signer's output filename; if you upgrade, re-test the full pipeline once.
 
 | Tool | Version used | How to get it |
 |------|--------------|---------------|
-| JDK (Java) | 17 (11+ works) | Zulu/Temurin/Oracle JDK; must be on `PATH` (`java -version`) |
-| adb (platform-tools) | 1.0.41 | Android SDK Platform-Tools; must be on `PATH` (`adb version`) |
-| Python | 3.11 (3.x) | python.org; must be on `PATH` (`python --version`) — used only to unzip the XAPK and run `apply_patches.py` |
+| JDK (Java) | 17 (11+ works) | **Required.** Zulu/Temurin/Oracle JDK; must be on `PATH` (`java -version`) |
+| Python | 3.11 (3.x) | **Required.** python.org; must be on `PATH` (`python --version`) — used to unzip the XAPK and run `apply_patches.py` |
+| adb (platform-tools) | 1.0.41 | **Optional — only needed to auto-install to a device.** Android SDK Platform-Tools on `PATH`. A build-only machine (just produce the signed APK, copy it to the phone manually) does NOT need adb; the script skips it. |
+
+### Minimum to just patch + build + sign (no device install)
+
+A fresh Windows machine needs only: **JDK** + **Python** on PATH, plus this repo
+(which already contains `tools/apktool.jar` + `tools/signer.jar`). Clone it, drop the
+XAPK in `Downloads`, double-click `PATCH-NEW-VERSION.bat`, answer `n` at the install
+prompt — the signed APK lands in `Projects\Him Upasthiti_<ver>_APKPure\`. No adb, no
+Android Studio, no USB needed.
 
 ## Note on git and large files
 

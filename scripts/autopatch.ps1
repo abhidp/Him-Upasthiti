@@ -103,7 +103,10 @@ if (-not (Test-Path $Xapk)) {
 Write-Host "XAPK   : $Xapk" -ForegroundColor Gray
 
 # ---- 3. Pre-flight: tools + jars ----------------------------------------------
-foreach ($tool in @("java","python","adb")) {
+# Only java + python are needed to patch/build/sign. adb is required ONLY to install
+# to a device, so it is checked lazily at the install step - a build-only machine
+# (e.g. a fresh laptop) does not need adb at all.
+foreach ($tool in @("java","python")) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
         Fail-Early "$tool is not on PATH. See STEP_BY_STEP_WALKTHROUGH.md section 0 (one-time setup)."
     }
@@ -226,7 +229,13 @@ print('extracted OK')
     try { $ans = (Read-Host "Install to connected device now? (y/n)").Trim().ToLower() }
     catch { Write-Host "  (no interactive console - skipping install prompt)" -ForegroundColor Gray }
 
-    if ($ans -eq 'y' -or $ans -eq 'yes') {
+    if (($ans -eq 'y' -or $ans -eq 'yes') -and -not (Get-Command adb -ErrorAction SilentlyContinue)) {
+        Write-Host "  adb is not installed on this machine - cannot auto-install." -ForegroundColor Yellow
+        Write-Host "  Your signed APK is ready here:" -ForegroundColor Yellow
+        Write-Host "      $outSigned" -ForegroundColor White
+        Write-Host "  Copy it to your phone and install it there manually." -ForegroundColor Yellow
+    }
+    elseif ($ans -eq 'y' -or $ans -eq 'yes') {
         # Enumerate authorised adb targets. A physical phone and an Android Studio
         # emulator both appear here; emulators have serials like "emulator-5554".
         $serials = @(
