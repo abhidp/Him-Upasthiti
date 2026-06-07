@@ -6,6 +6,14 @@ You do NOT need internet (except to download the XAPK, which you do yourself).
 
 `PATCHING_GUIDE.md` = the *why* and the deep reference. **This file = the *how*, in order.**
 
+> **On a different laptop, prefer the one-button `PATCH-NEW-VERSION.bat`** (runs
+> `scripts\autopatch.ps1`). It has **no hardcoded paths** — it finds the jars relative to
+> itself and reads your Downloads via `$env:USERPROFILE`, so it works for any Windows user
+> from any folder. The manual steps below were written around the *original* machine's
+> layout (jars sitting in a project-root folder next to `base_extracted`); on a fresh
+> `git clone` the jars live in `<repo>\tools\` instead, so a couple of the `Copy-Item`/path
+> lines below would need adjusting. Use the `.bat` and you can ignore that.
+
 ---
 
 ## 0. One-time setup (already done on this PC — just confirm)
@@ -18,22 +26,21 @@ adb version        # expect: Android Debug Bridge version 1.0.41
 python --version   # expect: Python 3.x
 ```
 
-And these two tool files must exist (they live in the 2.1.7 project folder):
+The build tools are **committed inside the repo** (so a clone is self-contained):
 
 ```
-C:\Users\abhid\Documents\Projects\Him Upasthiti_2.1.7_APKPure\apktool.jar
-C:\Users\abhid\Documents\Projects\Him Upasthiti_2.1.7_APKPure\signer.jar
+<repo>\tools\apktool.jar
+<repo>\tools\signer.jar
+<repo>\scripts\apply_patches.py
 ```
 
-The patch script lives at:
+`<repo>` is wherever you cloned/extracted this project — e.g.
+`...\Him Upasthiti_2.1.7_APKPure\base_extracted` on the original machine, or your clone
+folder on any other laptop. Nothing below hardcodes a username or absolute path.
 
-```
-C:\Users\abhid\Documents\Projects\Him Upasthiti_2.1.7_APKPure\base_extracted\scripts\apply_patches.py
-```
-
-If all of that is present, you never touch setup again. If you ever move to a new PC,
-re-install JDK + Android platform-tools (adb) + Python, and copy the two .jar files
-and the `scripts\` folder over.
+If all of that is present, you never touch setup again. On a new PC: install JDK + Python
+(adb only if you want the script to auto-install to a device), clone this repo (the jars
+come with it), and you're ready. See TOOLS.md for versions/sources.
 
 ---
 
@@ -45,10 +52,10 @@ number — **edit the one line below**, then paste the whole block:
 
 ```powershell
 $ver  = "2.1.9"                                                   # <-- CHANGE THIS each time
-$proj = "C:\Users\abhid\Documents\Projects"
+$proj = Join-Path $env:USERPROFILE "Documents\Projects"           # adjust if your projects live elsewhere
 $ref  = "$proj\Him Upasthiti_2.1.7_APKPure"                       # reference project (jars + script)
 $dst  = "$proj\Him Upasthiti_${ver}_APKPure"                      # new working folder
-$xapk = "C:\Users\abhid\Downloads\Him Upasthiti_${ver}_APKPure.xapk"
+$xapk = Join-Path $env:USERPROFILE "Downloads\Him Upasthiti_${ver}_APKPure.xapk"
 Write-Host "Version=$ver  Dest=$dst"
 Test-Path $xapk        # must print True. If False, fix the XAPK name/location.
 ```
